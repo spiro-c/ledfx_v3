@@ -1,22 +1,88 @@
-name: Build LedFx Binary's 
+name: Build LedFx Binary's
+
 on:
   push:
-    branches: [main]
+    branches:
+      - 'release-workflow'
+    tags:
+      - 'v*'
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - 'release-workflow'
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
-env:
-  GHCR_SLUG: ghcr.io/ledfx/ledfx_v3
-  PLATFORMS: linux/amd64,linux/arm64
+#  BINARY_NAME: LedFx-${{ matrix.os }}-${{ matrix.arch }}
+
 
 jobs:
-  build_win:
-    name: Build Windows x64 Binary
-    runs-on: windows-latest
+  build:
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.name }}
+    env:
+      CGO_ENABLED: 1
+      GHCR_SLUG: ghcr.io/ledfx/ledfx_v3
+      PLATFORMS: linux/amd64,linux/arm64
+      BINARY_NAME: LedFx-${{ matrix.os }}-${{ matrix.arch }}
     defaults:
       run:
-        shell: msys2 {0}
+        shell: '${{ matrix.shell }} {0}'
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            name: Macos-Build amd64
+            shell: bash
+            os: darwin
+            arch: amd64
+
+          - runner: macos-latest
+            name: Macos-Build arm64
+            shell: bash
+            os: darwin
+            arch: arm64
+
+          - runner: ubuntu-latest
+            name: Linux-Build amd64
+            shell: bash
+            platform: linux/amd64
+            os: linux
+            arch: amd64
+            
+          - runner: ubuntu-latest
+            name: Linux-Build arm64
+            shell: bash
+            platform: linux/arm64
+            os: linux
+            arch: arm64
+                        
+          - runner: ubuntu-latest
+            name: Linux-Build armhf
+            shell: bash
+            platform: linux/arm/v7
+            os: linux
+            arch: armhf
+                    
+          - runner: ubuntu-latest
+            name: Linux-Build armel
+            shell: bash
+            platform: linux/arm/v6
+            os: linux
+            arch: armel
+                           
+          - runner: windows-latest
+            name: Windows-Build AMD64
+            shell: msys2
+            os: windows
+            arch: amd64
+
     steps:
-    - name: Set up Build Environment 
+
+    - name: Windows Set up Build Environment
+      if: matrix.runner == 'windows-latest'
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -34,7 +100,8 @@ jobs:
             mingw-w64-x86_64-python
             mingw-w64-x86_64-waf
 
-    - name: Build Aubio
+    - name: Windows Build Aubio
+      if: matrix.runner == 'windows-latest'
       run: |
         git clone https://github.com/aubio/aubio && cd aubio
         curl -o 0001-fix-AUBIO_STRERROR-definition.patch https://raw.githubusercontent.com/msys2/MINGW-packages/master/mingw-w64-aubio/0001-fix-AUBIO_STRERROR-definition.patch
@@ -47,83 +114,19 @@ jobs:
         mv ${MINGW_PREFIX}/lib/*.dll ${MINGW_PREFIX}/bin/
         cd .. && rm -rf aubio
 
-    - name: Build portaudio
+    - name: Windows Build portaudio
+      if: matrix.runner == 'windows-latest'
       run: |
-        export CYGPATH=$(cygpath -m /)
         git clone https://github.com/portaudio/portaudio
         cmake -B portaudio/.build -S portaudio -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPA_USE_ASIO=on
         cmake --build portaudio/.build/
         cmake --install portaudio/.build/
         rm -rf portaudio
 
-    - name: Checkout Code
-      uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Build LedFx
+    - name: macOS Install dependencies
+      if: matrix.runner == 'macos-latest'
       run: |
-         go build -o 'LedFx.exe' -v
-    - name: Package LedFx
-      run: |
-         export CYGPATH=$(cygpath -m /)
-         mkdir LedFx_Builds/
-         mv LedFx.exe LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libaubio-5.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libportaudio.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libfftw3f-3.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libFLAC.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libogg-0.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libopus-0.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libsamplerate-0.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libsndfile-1.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libssp-0.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libvorbis-0.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libvorbisenc-2.dll LedFx_Builds/
-         cp $CYGPATH/mingw64/bin/libwinpthread-1.dll LedFx_Builds/
-
-    - name: Upload LedFx Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: LedFx-windows-amd64-${{ github.sha }}
-        path: LedFx_Builds/
-
-  build_macos:
-    name: Build macos Binary's
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        version: ['darwin-amd64', 'darwin-arm64']
-        include:
-          - version: darwin-amd64
-            OS: darwin
-            ARCH: amd64
-          - version: darwin-arm64
-            OS: darwin
-            ARCH: arm64
-    steps:
-    - name: Set up Go 1.18
-      uses: actions/setup-go@v3
-      id: go
-      with:
-        go-version: 1.18
-        
-    - name: Checkout Code
-      uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Get Build Matrix Info and Set Variables
-      run: |
-        CGO_ENABLED=1
-        GOOS=${{ matrix.OS }}
-        GOARCH=${{ matrix.ARCH }}
-        BINARY_NAME=LedFx-${{ matrix.OS }}-${{ matrix.ARCH }}
-        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
-        echo "GOOS=$GOOS" >> $GITHUB_ENV
-        echo "GOARCH=$GOARCH" >> $GITHUB_ENV
-    - name: Install dependencies
-      shell: bash {0}
-      run: |
-        if [ ${{ matrix.ARCH }} = "arm64" ]; then
+        if [ ${{ matrix.arch }} = "arm64" ]; then
           mkdir -p $HOME/arm-target/bin
           mkdir -p $HOME/arm-target/brew-cache
           echo $PWD
@@ -149,131 +152,90 @@ jobs:
           brew install portaudio
           brew install aubio
         fi
-    - name: Build
+
+    - name: Set up Go 1.18
+      uses: actions/setup-go@v3
+      id: go
+      with:
+        go-version: 1.18
+
+    - name: Set up QEMU
+      if: matrix.runner == 'ubuntu-latest'
+      uses: docker/setup-qemu-action@v2
+
+    - name: Set up Docker Buildx
+      if: matrix.runner == 'ubuntu-latest'
+      uses: docker/setup-buildx-action@v2
+
+    # - name: Docker meta
+    #   id: meta
+    #   uses: docker/metadata-action@v4
+    #   with:
+    #     images: |
+    #           ${{ env.GHCR_SLUG }}
+    #     tags: ${{ steps.tags.outputs.result }}
+    #     labels: |
+    #       org.opencontainers.image.title=ledfx
+    #       org.opencontainers.image.vendor=ledfx
+
+    - name: Checkout Code
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Build Linux artifacts
+      if: matrix.runner == 'ubuntu-latest'
+      uses: docker/bake-action@v2
+      with:
+        targets: artifact
+        set: |
+          *.platform=${{ matrix.platform }}
+
+    - name: Build macOS artifacts
+      if: matrix.runner == 'macos-latest'
       run: |
-        if [ ${{ matrix.ARCH }} = "arm64" ]; then
+        if [ ${{ matrix.arch }} = "arm64" ]; then
           export PKG_CONFIG_PATH=/Users/runner/arm-target/lib/pkgconfig:$PKG_CONFIG_PATH
           export AUBIO_PATH=/Users/runner/arm-target/Cellar/aubio/0.4.9_3/
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.OS }} GOARCH=${{ matrix.ARCH }} go build -tags dynamic -o "$BINARY_NAME" -v -ldflags="-s -w"
+          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
         else
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_ENABLED=1 GOOS=${{ matrix.OS }} GOARCH=${{ matrix.ARCH }} go build -tags dynamic -o "$BINARY_NAME" -v -ldflags="-s -w"
+          CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
         fi
-      # Permission Loss https://github.com/actions/upload-artifact#permission-loss  
+    - name: Build Windows artifact
+      if: matrix.runner == 'windows-latest'
+      run: |
+         go build -o 'dist/$BINARY_NAME.exe' -v
+
+    - name: Package Windows artifact
+      if: matrix.runner == 'windows-latest'
+      run: |
+         export CYGPATH=$(cygpath -m /)
+         cp $CYGPATH/mingw64/bin/libaubio-5.dll dist/
+         cp $CYGPATH/mingw64/bin/libportaudio.dll dist/
+         cp $CYGPATH/mingw64/bin/libfftw3f-3.dll dist/
+         cp $CYGPATH/mingw64/bin/libFLAC.dll dist/
+         cp $CYGPATH/mingw64/bin/libogg-0.dll dist/
+         cp $CYGPATH/mingw64/bin/libopus-0.dll dist/
+         cp $CYGPATH/mingw64/bin/libsamplerate-0.dll dist/
+         cp $CYGPATH/mingw64/bin/libsndfile-1.dll dist/
+         cp $CYGPATH/mingw64/bin/libssp-0.dll dist/
+         cp $CYGPATH/mingw64/bin/libvorbis-0.dll dist/
+         cp $CYGPATH/mingw64/bin/libvorbisenc-2.dll dist/
+         cp $CYGPATH/mingw64/bin/libwinpthread-1.dll dist/
+
+      # Permission Loss https://github.com/actions/upload-artifact#permission-loss
     - name: Tar artifacts
-      run: tar -cvf ${{ env.BINARY_NAME }}-${{ github.sha }}.tar ${{ env.BINARY_NAME }} 
+      run: tar -cvf ${{ env.BINARY_NAME }}-${{ github.sha }}.tar dist/
+
+    - name: Write Env On Windows
+      run: |
+        env
+        printenv > $BINARY_NAME
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar
         path: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar
-
-
-  prepare_linux:
-    name: Prepare linux env
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v3
-      -
-        name: Cache
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.ledfx-cache
-          key: ${{ runner.os }}-ledfx-base-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ledfx-base-
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      -
-        name: Build base (cache only)
-        uses: docker/bake-action@v2
-        with:
-          targets: base
-          set: |
-            *.platform=${{ env.PLATFORMS }}
-            *.cache-from=type=local,src=/tmp/.ledfx-cache
-            *.cache-to=type=local,dest=/tmp/.ledfx-cache-new,mode=max
-      -
-        # FIXME: https://github.com/moby/buildkit/issues/1896
-        name: Move cache
-        run: |
-          rm -rf /tmp/.ledfx-cache
-          mv /tmp/.ledfx-cache-new /tmp/.ledfx-cache
-  build_linux:
-    name: Build linux Binary's
-    needs: prepare_linux
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - platform: linux/amd64
-            os: linux
-            debian-arch: amd64
-          - platform: linux/arm64
-            os: linux
-            debian-arch: arm64
-          - platform: linux/arm/v7
-            os: linux
-            debian-arch: armhf
-          - platform: linux/arm/v6
-            os: linux
-            debian-arch: armel
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v3
-      -  
-        name: Cache
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.ledfx-cache
-          key: ${{ runner.os }}-ledfx-base-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ledfx-base-
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      -
-        name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-                ${{ env.GHCR_SLUG }}
-          tags: ${{ steps.tags.outputs.result }}
-          labels: |
-            org.opencontainers.image.title=ledfx
-            org.opencontainers.image.vendor=ledfx
-      -
-        name: Build artifacts
-        uses: docker/bake-action@v2
-        with:
-          targets: artifact
-          set: |
-            *.platform=${{ matrix.platform }}
-#      -
-#        name: Move artifacts
-#        run: |
-#          mv ./dist/**/* ./dist/
-      - 
-        # Permission Loss https://github.com/actions/upload-artifact#permission-loss
-        name: Tar artifacts
-        run: tar -cvf LedFx-${{ matrix.os }}-${{ matrix.debian-arch }}-${{ github.sha }}.tar dist/ 
-      -
-        name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: LedFx-${{ matrix.os }}-${{ matrix.debian-arch }}-${{ github.sha }}.tar
-          path: LedFx-${{ matrix.os }}-${{ matrix.debian-arch }}-${{ github.sha }}.tar
-          if-no-files-found: error
