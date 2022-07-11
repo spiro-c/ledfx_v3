@@ -15,74 +15,69 @@ on:
       - '**.md'
   workflow_dispatch:
 
-#  BINARY_NAME: LedFx-${{ matrix.os }}-${{ matrix.arch }}
-
-
 jobs:
   build:
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
     name: ${{ matrix.name }}
     env:
       CGO_ENABLED: 1
-      GHCR_SLUG: ghcr.io/ledfx/ledfx_v3
-      PLATFORMS: linux/amd64,linux/arm64
-      BINARY_NAME: LedFx-${{ matrix.os }}-${{ matrix.arch }}
+      BINARY_NAME: LedFx-${{ matrix.GOOS }}-${{ matrix.arch }}
     defaults:
       run:
         shell: '${{ matrix.shell }} {0}'
     strategy:
       matrix:
         include:
-          - runner: macos-latest
+          - os: macos-latest
             name: Macos-Build amd64
             shell: bash
-            os: darwin
+            GOOS: darwin
             arch: amd64
 
-          - runner: macos-latest
+          - os: macos-latest
             name: Macos-Build arm64
             shell: bash
-            os: darwin
+            GOOS: darwin
             arch: arm64
 
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             name: Linux-Build amd64
             shell: bash
             platform: linux/amd64
-            os: linux
+            GOOS: linux
             arch: amd64
             
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             name: Linux-Build arm64
             shell: bash
             platform: linux/arm64
-            os: linux
+            GOOS: linux
             arch: arm64
                         
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             name: Linux-Build armhf
             shell: bash
             platform: linux/arm/v7
-            os: linux
+            GOOS: linux
             arch: armhf
                     
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             name: Linux-Build armel
             shell: bash
             platform: linux/arm/v6
-            os: linux
+            GOOS: linux
             arch: armel
                            
-          - runner: windows-latest
+          - os: windows-latest
             name: Windows-Build amd64
             shell: msys2
-            os: windows
+            GOOS: windows
             arch: amd64
 
     steps:
 
     - name: Windows Set up Build Environment
-      if: matrix.runner == 'windows-latest'
+      if: matrix.os == 'windows-latest'
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -93,7 +88,7 @@ jobs:
             unzip
             base-devel
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-go
+#            mingw-w64-x86_64-go
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-libsamplerate
@@ -101,7 +96,7 @@ jobs:
             mingw-w64-x86_64-waf
 
     - name: Windows Build Aubio
-      if: matrix.runner == 'windows-latest'
+      if: matrix.os == 'windows-latest'
       run: |
         git clone https://github.com/aubio/aubio && cd aubio
         curl -o 0001-fix-AUBIO_STRERROR-definition.patch https://raw.githubusercontent.com/msys2/MINGW-packages/master/mingw-w64-aubio/0001-fix-AUBIO_STRERROR-definition.patch
@@ -115,7 +110,7 @@ jobs:
         cd .. && rm -rf aubio
 
     - name: Windows Build portaudio
-      if: matrix.runner == 'windows-latest'
+      if: matrix.os == 'windows-latest'
       run: |
         git clone https://github.com/portaudio/portaudio
         cmake -B portaudio/.build -S portaudio -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPA_USE_ASIO=on
@@ -124,7 +119,7 @@ jobs:
         rm -rf portaudio
 
     - name: macOS Install dependencies
-      if: matrix.runner == 'macos-latest'
+      if: matrix.os == 'macos-latest'
       run: |
         if [ ${{ matrix.arch }} = "arm64" ]; then
           mkdir -p $HOME/arm-target/bin
@@ -160,23 +155,12 @@ jobs:
         go-version: 1.18
 
     - name: Set up QEMU
-      if: matrix.runner == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'
       uses: docker/setup-qemu-action@v2
 
     - name: Set up Docker Buildx
-      if: matrix.runner == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'
       uses: docker/setup-buildx-action@v2
-
-    # - name: Docker meta
-    #   id: meta
-    #   uses: docker/metadata-action@v4
-    #   with:
-    #     images: |
-    #           ${{ env.GHCR_SLUG }}
-    #     tags: ${{ steps.tags.outputs.result }}
-    #     labels: |
-    #       org.opencontainers.image.title=ledfx
-    #       org.opencontainers.image.vendor=ledfx
 
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -184,7 +168,7 @@ jobs:
         submodules: true
 
     - name: Build Linux artifacts
-      if: matrix.runner == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'
       uses: docker/bake-action@v2
       with:
         targets: artifact
@@ -192,24 +176,24 @@ jobs:
           *.platform=${{ matrix.platform }}
 
     - name: Build macOS artifacts
-      if: matrix.runner == 'macos-latest'
+      if: matrix.os == 'macos-latest'
       run: |
         if [ ${{ matrix.arch }} = "arm64" ]; then
           export PKG_CONFIG_PATH=/Users/runner/arm-target/lib/pkgconfig:$PKG_CONFIG_PATH
           export AUBIO_PATH=/Users/runner/arm-target/Cellar/aubio/0.4.9_3/
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
+          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
         else
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
+          CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
         fi
     - name: Build Windows artifact
-      if: matrix.runner == 'windows-latest'
+      if: matrix.os == 'windows-latest'
       run: |
-         go build -o 'dist/$BINARY_NAME.exe' -v
+         go build -o dist/$BINARY_NAME -v
 
     - name: Package Windows artifact
-      if: matrix.runner == 'windows-latest'
+      if: matrix.os == 'windows-latest'
       run: |
          export CYGPATH=$(cygpath -m /)
          cp $CYGPATH/mingw64/bin/libaubio-5.dll dist/
