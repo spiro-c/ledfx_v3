@@ -74,7 +74,7 @@ jobs:
             arch: armel
                            
           - runner: windows-latest
-            name: Windows-Build AMD64
+            name: Windows-Build amd64
             shell: msys2
             os: windows
             arch: amd64
@@ -227,15 +227,21 @@ jobs:
 
       # Permission Loss https://github.com/actions/upload-artifact#permission-loss
     - name: Tar artifacts
-      run: tar -cvf ${{ env.BINARY_NAME }}-${{ github.sha }}.tar dist/
-
-    - name: Write Env On Windows
-      run: |
-        env
-        printenv > $BINARY_NAME
+      run: tar -czvf ${{ env.BINARY_NAME }}.tar.gz dist/
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar
-        path: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar
+        name: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar.gz
+        path: ${{ env.BINARY_NAME }}.tar.gz
+
+    - name: GitHub Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          *.tar.gz
+          *.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
