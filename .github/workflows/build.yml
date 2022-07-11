@@ -181,15 +181,15 @@ jobs:
           export PKG_CONFIG_PATH=/Users/runner/arm-target/lib/pkgconfig:$PKG_CONFIG_PATH
           export AUBIO_PATH=/Users/runner/arm-target/Cellar/aubio/0.4.9_3/
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
+          CGO_CFLAGS="-I$AUBIO_PATH/include" CGO_LDFLAGS="-L$AUBIO_PATH/lib" CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o "dist/$BINARY_NAME" -v -ldflags="-s -w"
         else
           export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-          CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o 'dist/$BINARY_NAME' -v -ldflags="-s -w"
+          CGO_ENABLED=1 GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.arch }} go build -tags dynamic -o "dist/$BINARY_NAME" -v -ldflags="-s -w"
         fi
     - name: Build Windows artifact
       if: matrix.os == 'windows-latest'
       run: |
-         go build -o dist/$BINARY_NAME -v
+         go build -o "dist/$BINARY_NAME" -v
 
     - name: Package Windows artifact
       if: matrix.os == 'windows-latest'
@@ -216,7 +216,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar.gz
-        path: ${{ env.BINARY_NAME }}.tar.gz
+        path: dist/
 
     - name: GitHub Release
       uses: softprops/action-gh-release@v1
