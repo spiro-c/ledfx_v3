@@ -227,7 +227,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.BINARY_NAME }}-${{ github.sha }}
-        path: ${{ env.BINARY_NAME }}.(tar.gz|zip)
+        path: ${{ env.BINARY_NAME }}.*
 
     - name: GitHub Release
       uses: softprops/action-gh-release@v1
