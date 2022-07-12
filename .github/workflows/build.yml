@@ -3,7 +3,7 @@ name: Build LedFx Binary's
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
-  
+
 on:
   push:
     branches:
@@ -221,6 +221,7 @@ jobs:
           7z a -tzip ${{ env.BINARY_NAME }}.zip dist/
         else
           tar -czvf ${{ env.BINARY_NAME }}.tar.gz dist/
+        fi
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
