@@ -1,5 +1,9 @@
 name: Build LedFx Binary's
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+  
 on:
   push:
     branches:
@@ -85,7 +89,7 @@ jobs:
         install: |
             git
             make
-            unzip
+            p7zip
             base-devel
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkg-config
@@ -149,6 +153,7 @@ jobs:
         fi
 
     - name: Set up Go 1.18
+      if: matrix.os != 'windows-latest'
       uses: actions/setup-go@v3
       id: go
       with:
@@ -190,7 +195,7 @@ jobs:
     - name: Build Windows artifact
       if: matrix.os == 'windows-latest'
       run: |
-         go build -o "dist/$BINARY_NAME" -v
+         go build -o "dist/$BINARY_NAME.exe" -v
 
     - name: Package Windows artifact
       if: matrix.os == 'windows-latest'
@@ -211,13 +216,17 @@ jobs:
 
       # Permission Loss https://github.com/actions/upload-artifact#permission-loss
     - name: Tar artifacts
-      run: tar -czvf ${{ env.BINARY_NAME }}.tar.gz dist/
+      run: |
+        if [ ${{ matrix.os }} = "windows-latest" ]; then
+          7z a -tzip ${{ env.BINARY_NAME }}.zip dist/
+        else
+          tar -czvf ${{ env.BINARY_NAME }}.tar.gz dist/
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ env.BINARY_NAME }}-${{ github.sha }}.tar.gz
-        path: dist/
+        name: ${{ env.BINARY_NAME }}-${{ github.sha }}
+        path: ${{ env.BINARY_NAME }}.(tar.gz|zip)
 
     - name: GitHub Release
       uses: softprops/action-gh-release@v1
