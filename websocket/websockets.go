@@ -5,6 +5,7 @@ import (
 	"ledfx/event"
 	"ledfx/logger"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -24,6 +25,7 @@ var Upgrader = websocket.Upgrader{
 
 type webSocket struct {
 	conn *websocket.Conn
+	mu   sync.Mutex
 }
 
 func (w *webSocket) handleEvent(e *event.Event) {
@@ -31,6 +33,8 @@ func (w *webSocket) handleEvent(e *event.Event) {
 }
 
 func (w *webSocket) Send(v any) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	b, err := json.Marshal(v)
 	if err != nil {
 		logger.Logger.WithField("context", "Websocket").Debug(err)
@@ -72,12 +76,13 @@ func New(w http.ResponseWriter, r *http.Request) {
 	}
 	ws := webSocket{
 		conn: conn,
+		mu:   sync.Mutex{},
 	}
 	logger.Logger.WithField("context", "Websocket").Debugf("Connection established with %s", r.RemoteAddr)
 	// subscribe to the events we want
 	// there are eight event types so we'll just ask for all of them
 	var i event.EventType
-	for i = 0; i <= 10; i++ {
+	for i = 0; i <= 11; i++ {
 		// sub and also defer calling the unsubscribe function
 		defer event.Subscribe(i, ws.handleEvent)()
 	}

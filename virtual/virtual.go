@@ -48,9 +48,9 @@ func (v *Virtual) Initialize(id string, c map[string]interface{}) (err error) {
 	// invoke event
 	event.Invoke(event.VirtualUpdate,
 		map[string]interface{}{
-			"id":     v.ID,
-			"config": c,
-			"state":  v.State,
+			"id":          v.ID,
+			"base_config": c,
+			"active":      v.State,
 		})
 	return err
 }
@@ -71,6 +71,9 @@ func (v *Virtual) renderLoop() {
 	for {
 		select {
 		case <-v.ticker.C:
+			if v.Effect == nil {
+				return
+			}
 			v.Effect.Render(v.pixels) // todo catch errors in send?
 			for _, d := range v.Devices {
 				if d.Config.PixelCount != len(v.pixels) {
@@ -104,10 +107,10 @@ func (v *Virtual) Start() error {
 	}
 	for _, d := range v.Devices {
 		if d.State != device.Connected {
-			err := fmt.Errorf("cannot start virtual %s, device %s is not connected", v.ID, d.ID)
-			logger.Logger.WithField("context", "Virtual").Error(err)
+			// err := fmt.Errorf("cannot start virtual %s, device %s is not connected", v.ID, d.ID)
+			// logger.Logger.WithField("context", "Virtual").Error(err)
 			go d.Connect()
-			return err
+			// return err
 		}
 	}
 	v.pixels = make(color.Pixels, v.PixelCount())
@@ -120,9 +123,9 @@ func (v *Virtual) Start() error {
 	entry, _ := config.GetVirtual(v.ID)
 	event.Invoke(event.VirtualUpdate,
 		map[string]interface{}{
-			"id":     v.ID,
-			"config": entry.Config,
-			"state":  v.State,
+			"id":          v.ID,
+			"base_config": entry.Config,
+			"active":      v.State,
 		})
 	return nil
 }
@@ -135,13 +138,16 @@ func (v *Virtual) Stop() {
 		v.done <- true
 	}
 	v.State = false
+	for _, d := range v.Devices {
+		d.Disconnect()
+	}
 	logger.Logger.WithField("context", "Virtuals").Infof("Deactivated %s", v.ID)
 	// invoke event
 	entry, _ := config.GetVirtual(v.ID)
 	event.Invoke(event.VirtualUpdate,
 		map[string]interface{}{
-			"id":     v.ID,
-			"config": entry.Config,
-			"state":  v.State,
+			"id":          v.ID,
+			"base_config": entry.Config,
+			"active":      v.State,
 		})
 }

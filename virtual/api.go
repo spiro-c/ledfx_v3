@@ -109,13 +109,15 @@ func NewAPI(mux *http.ServeMux) {
 			if util.InternalError("Virtuals API", err, writer) {
 				return
 			}
+		default:
+			writer.WriteHeader(http.StatusNotImplemented)
 		}
 	})
 
 	mux.HandleFunc("/api/virtuals", func(writer http.ResponseWriter, request *http.Request) {
 		switch request.Method {
 		case http.MethodGet:
-			// Get virtuals
+			// Get virtuals from config
 			b, err := json.Marshal(config.GetVirtuals())
 			if util.InternalError("Virtuals API", err, writer) {
 				return
@@ -143,7 +145,8 @@ func NewAPI(mux *http.ServeMux) {
 			}
 			writer.Write(b)
 			return
+		default:
+			writer.WriteHeader(http.StatusNotImplemented)
 		}
-
 	})
 }

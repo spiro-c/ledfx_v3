@@ -148,8 +148,8 @@ func (e *Effect) UpdateBaseConfig(c interface{}) (err error) {
 	// invoke event
 	event.Invoke(event.EffectUpdate,
 		map[string]interface{}{
-			"id":     e.ID,
-			"config": mapConfig,
+			"id":          e.ID,
+			"base_config": mapConfig,
 		})
 	return err
 }
@@ -194,7 +194,7 @@ func (e *Effect) updateStoredProperties(newConfig BaseEffectConfig) {
 // Render a new frame of pixels. Give the previous frame as argument.
 // This handles assembling a new frame, then applying mirrors, blur, filters, etc
 func (e *Effect) Render(p color.Pixels) {
-	if !e.Ready {
+	if !e.Ready || len(p) != e.pixelCount {
 		return
 	}
 	// These timing variables ensure that temporal effects and filters run at constant
