@@ -196,23 +196,6 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
          go build -o "dist/$BINARY_NAME.exe" -v
-  
-    # - name: Package Windows artifact
-    #   if: matrix.os == 'windows-latest'
-    #   run: |
-    #      export CYGPATH=$(cygpath -m /)
-    #      cp $CYGPATH/mingw64/bin/libaubio-5.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libportaudio.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libfftw3f-3.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libFLAC.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libogg-0.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libopus-0.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libsamplerate-0.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libsndfile-1.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libssp-0.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libvorbis-0.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libvorbisenc-2.dll dist/
-    #      cp $CYGPATH/mingw64/bin/libwinpthread-1.dll dist/
 
     - name: Package Windows artifact
       if: matrix.os == 'windows-latest'

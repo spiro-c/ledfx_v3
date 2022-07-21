@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xuo pipefail
+set -uo pipefail
 
 src="${1:-}"
 dst="${2:-}"
