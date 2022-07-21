@@ -196,11 +196,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
          go build -o "dist/$BINARY_NAME.exe" -v
-
-    - name: Package Windows artifact
-      if: matrix.os == 'windows-latest'
-      run: chmod +x objcopy.sh && ./objcopy.sh dist/$BINARY_NAME.exe dist/
-      
+  
     # - name: Package Windows artifact
     #   if: matrix.os == 'windows-latest'
     #   run: |
@@ -218,6 +214,12 @@ jobs:
     #      cp $CYGPATH/mingw64/bin/libvorbisenc-2.dll dist/
     #      cp $CYGPATH/mingw64/bin/libwinpthread-1.dll dist/
 
+    - name: Package Windows artifact
+      if: matrix.os == 'windows-latest'
+      run: |
+         chmod +x objcopy.sh
+         ./objcopy.sh dist/$BINARY_NAME.exe dist/
+    
       # Permission Loss https://github.com/actions/upload-artifact#permission-loss
     - name: Tar artifacts
       run: |
